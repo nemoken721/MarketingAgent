@@ -9,6 +9,11 @@ import {
   CREDIT_COSTS,
 } from "@/lib/credits";
 import { whoisDomain } from "whoiser";
+import {
+  generateSystemPromptWithRAG,
+  shouldUseRAG,
+  inferCategory,
+} from "@/lib/intelligence";
 
 // Imagen 3 用クライアント（遅延初期化）
 let genAIClient: GoogleGenAI | null = null;
@@ -733,13 +738,49 @@ ${connectedSites
     lastMessage: messages[messages.length - 1]?.content?.substring(0, 50),
   });
 
-  console.log("📝 System Prompt:", systemPrompt.substring(0, 200));
+  // ★★★ RAG Integration: マーケティング相談時は知識ベースを活用 ★★★
+  const lastUserMessage = messages
+    .filter((m: { role: string }) => m.role === "user")
+    .pop()?.content as string || "";
+
+  let finalSystemPrompt = systemPrompt;
+  let ragUsed = false;
+
+  // RAGを使うべきクエリかどうか判定
+  if (shouldUseRAG(lastUserMessage)) {
+    console.log("[RAG] マーケティング相談を検出、RAGを適用します");
+    const category = inferCategory(lastUserMessage);
+
+    try {
+      const ragResult = await generateSystemPromptWithRAG(
+        lastUserMessage,
+        systemPrompt,
+        {
+          enabled: true,
+          maxResults: 5,
+          category,
+        }
+      );
+
+      finalSystemPrompt = ragResult.systemPrompt;
+      ragUsed = ragResult.ragUsed;
+
+      if (ragUsed) {
+        console.log(`[RAG] 知識ベースから ${ragResult.ragContext?.retrievedKnowledge.length || 0} 件の知識を取得`);
+      }
+    } catch (error) {
+      console.error("[RAG] エラー発生、元のプロンプトを使用:", error);
+    }
+  }
+
+  console.log("📝 System Prompt:", finalSystemPrompt.substring(0, 200));
   console.log("💬 Messages:", JSON.stringify(messages, null, 2));
+  console.log("🧠 RAG使用:", ragUsed);
 
   const result = streamText({
     model: google("gemini-2.0-flash"),
     messages,
-    system: systemPrompt,
+    system: finalSystemPrompt,
     maxTokens: 2000,
     temperature: 0.7,
     maxSteps: 10, // 自律的にツールを連続実行できるようにする

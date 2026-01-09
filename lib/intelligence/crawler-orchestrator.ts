@@ -368,7 +368,7 @@ export class CrawlerOrchestrator {
       highlights.push({
         category,
         title: `${category}の新着情報: ${items.length}件`,
-        summary: items.map((i: { title: string }) => i.title).join(", "),
+        summary: items.map((i) => i.title).join(", "),
         importance: items.length >= 5 ? "high" : items.length >= 2 ? "medium" : "low",
       });
     }
@@ -392,7 +392,7 @@ export class CrawlerOrchestrator {
   /**
    * カテゴリ別にグループ化
    */
-  private groupByCategory(items: Array<{ category: string }>): Record<string, Array<{ category: string }>> {
+  private groupByCategory<T extends { category: string }>(items: T[]): Record<string, T[]> {
     return items.reduce((acc, item) => {
       const category = item.category || "other";
       if (!acc[category]) {
@@ -400,7 +400,7 @@ export class CrawlerOrchestrator {
       }
       acc[category].push(item);
       return acc;
-    }, {} as Record<string, Array<{ category: string }>>);
+    }, {} as Record<string, T[]>);
   }
 
   /**
