@@ -47,9 +47,9 @@ export async function generateSystemPromptWithRAG(
   }
 
   try {
-    // OpenAI API Keyがない場合はRAGをスキップ
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn("[RAG Integration] OPENAI_API_KEY not set, skipping RAG");
+    // Gemini API Keyがない場合はRAGをスキップ
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.warn("[RAG Integration] GOOGLE_GENERATIVE_AI_API_KEY not set, skipping RAG");
       return {
         systemPrompt: prependPersonaToPrompt(existingSystemPrompt),
         ragUsed: false,

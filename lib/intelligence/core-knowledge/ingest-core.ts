@@ -18,7 +18,7 @@ export async function ingestCoreKnowledge(): Promise<{
 }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error("Supabase credentials not configured");
@@ -37,12 +37,12 @@ export async function ingestCoreKnowledge(): Promise<{
       // Markdown形式に変換
       const content = knowledgeToMarkdown(knowledge);
 
-      // ベクトル埋め込みを生成
+      // ベクトル埋め込みを生成（Gemini）
       let embedding: number[] = [];
-      if (openaiKey) {
-        embedding = await generateEmbedding(content, openaiKey);
+      if (geminiKey) {
+        embedding = await generateEmbedding(content, geminiKey);
       } else {
-        console.warn("[IngestCore] OPENAI_API_KEY not set, skipping embedding");
+        console.warn("[IngestCore] GOOGLE_GENERATIVE_AI_API_KEY not set, skipping embedding");
       }
 
       // DBに保存（upsert）
@@ -94,7 +94,7 @@ export async function ingestCoreKnowledge(): Promise<{
 export async function addCustomCoreKnowledge(knowledge: UniversalKnowledge): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error("Supabase credentials not configured");
@@ -110,8 +110,8 @@ export async function addCustomCoreKnowledge(knowledge: UniversalKnowledge): Pro
   const content = knowledgeToMarkdown(knowledge);
 
   let embedding: number[] = [];
-  if (openaiKey) {
-    embedding = await generateEmbedding(content, openaiKey);
+  if (geminiKey) {
+    embedding = await generateEmbedding(content, geminiKey);
   }
 
   const { error } = await supabase.from("knowledge_vectors").upsert(
@@ -139,28 +139,33 @@ export async function addCustomCoreKnowledge(knowledge: UniversalKnowledge): Pro
 }
 
 /**
- * テキストをベクトル埋め込みに変換
+ * テキストをベクトル埋め込みに変換（Gemini text-embedding-004）
  */
 async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
   try {
-    const response = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: text.slice(0, 8000),
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "models/text-embedding-004",
+          content: {
+            parts: [{ text: text.slice(0, 8000) }],
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    return data.data[0].embedding;
+    return data.embedding.values;
   } catch (error) {
     console.error("[IngestCore] Embedding generation failed:", error);
     return [];

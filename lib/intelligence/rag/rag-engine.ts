@@ -102,35 +102,40 @@ export class RAGEngine {
   }
 
   /**
-   * クエリをベクトル埋め込みに変換
+   * クエリをベクトル埋め込みに変換（Gemini text-embedding-004）
    */
   private async generateQueryEmbedding(query: string): Promise<number[]> {
-    const openaiKey = process.env.OPENAI_API_KEY;
+    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    if (!openaiKey) {
-      console.warn("[RAG] OPENAI_API_KEY not set");
+    if (!geminiKey) {
+      console.warn("[RAG] GOOGLE_GENERATIVE_AI_API_KEY not set");
       return [];
     }
 
     try {
-      const response = await fetch("https://api.openai.com/v1/embeddings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openaiKey}`,
-        },
-        body: JSON.stringify({
-          model: "text-embedding-3-small",
-          input: query,
-        }),
-      });
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "models/text-embedding-004",
+            content: {
+              parts: [{ text: query }],
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      return data.data[0].embedding;
+      return data.embedding.values;
     } catch (error) {
       console.error("[RAG] Embedding generation failed:", error);
       return [];
