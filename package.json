@@ -1,0 +1,53 @@
+{
+  "name": "marty",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^1.0.9",
+    "@google/genai": "^1.35.0",
+    "@google/generative-ai": "^0.24.1",
+    "@sentry/nextjs": "^8.45.0",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.47.10",
+    "ai": "^4.0.38",
+    "canvas-confetti": "^1.9.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.468.0",
+    "next": "15.1.4",
+    "openai": "^6.15.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^3.6.0",
+    "resend": "^4.0.3",
+    "sonner": "^2.0.7",
+    "ssh2": "^1.17.0",
+    "stripe": "^17.5.0",
+    "tailwind-merge": "^2.6.0",
+    "vaul": "^1.1.2",
+    "web-vitals": "^5.1.0",
+    "whoiser": "^2.0.0-beta.10",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.4",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5"
+  }
+}
