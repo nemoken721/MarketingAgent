@@ -3,6 +3,12 @@
 -- OpenAI (1536次元) → Gemini text-embedding-004 (768次元)
 -- =====================================================
 
+-- 既存の関数を削除（引数の型が異なるため明示的に削除が必要）
+DROP FUNCTION IF EXISTS search_knowledge(vector(1536), int, text);
+DROP FUNCTION IF EXISTS search_knowledge_with_priority(vector(1536), int, text);
+DROP FUNCTION IF EXISTS search_knowledge(vector, int, text);
+DROP FUNCTION IF EXISTS search_knowledge_with_priority(vector, int, text);
+
 -- 既存のembeddingカラムを削除して新しい次元で再作成
 ALTER TABLE knowledge_vectors
 DROP COLUMN IF EXISTS embedding;
@@ -17,8 +23,8 @@ ON knowledge_vectors
 USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 
--- 検索関数を更新（768次元対応）
-CREATE OR REPLACE FUNCTION search_knowledge(
+-- 検索関数を作成（768次元対応）
+CREATE FUNCTION search_knowledge(
   query_embedding vector(768),
   match_count int DEFAULT 5,
   filter_category text DEFAULT NULL
@@ -55,8 +61,8 @@ BEGIN
 END;
 $$;
 
--- 優先度付き検索関数を更新（768次元対応）
-CREATE OR REPLACE FUNCTION search_knowledge_with_priority(
+-- 優先度付き検索関数を作成（768次元対応）
+CREATE FUNCTION search_knowledge_with_priority(
   query_embedding vector(768),
   match_count int DEFAULT 5,
   filter_category text DEFAULT NULL
