@@ -23,6 +23,7 @@ import { ChatThread, ChatMessage as ChatMessageType, CanvasMode } from "@/types/
 // Generative UI Components
 import { PlanningBoard } from "../generative-ui/planning-board";
 import { ImagePreview } from "../generative-ui/image-preview";
+import { ContentFramePreview } from "../generative-ui/content-frame-preview";
 import { ConstructionRoadmap } from "../generative-ui/construction-roadmap";
 import { DNSGuideCard } from "../generative-ui/dns-guide-card";
 import { ServerAuthForm } from "../generative-ui/server-auth-form";
@@ -134,6 +135,10 @@ export function ChatDrawer({
   });
 
   // スレッド切り替え時のみメッセージを復元（メッセージ追加時は更新しない）
+  // currentMessagesの参照変更による無限ループを防ぐため、currentThreadIdのみを依存配列に含める
+  const currentMessagesRef = useRef(currentMessages);
+  currentMessagesRef.current = currentMessages;
+
   useEffect(() => {
     // スレッドIDが変更されたかチェック
     const threadChanged = prevThreadIdRef.current !== currentThreadId;
@@ -146,9 +151,10 @@ export function ChatDrawer({
 
     console.log("[ChatDrawer] Thread changed, syncing messages:", currentThreadId);
 
-    if (currentMessages.length > 0) {
+    const msgs = currentMessagesRef.current;
+    if (msgs.length > 0) {
       setMessages(
-        currentMessages.map((msg) => ({
+        msgs.map((msg) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
@@ -159,12 +165,12 @@ export function ChatDrawer({
             : {}),
         }))
       );
-      messageCountRef.current = currentMessages.length;
+      messageCountRef.current = msgs.length;
     } else if (!currentThreadId) {
       setMessages([]);
       messageCountRef.current = 0;
     }
-  }, [currentThreadId, currentMessages, setMessages]);
+  }, [currentThreadId, setMessages]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -634,6 +640,14 @@ function renderToolResult(toolName: string, toolCallId: string, result: any) {
       return (
         <div key={toolCallId} className="mt-2">
           <ImagePreview data={result} />
+        </div>
+      );
+
+    case "generateContentFrame":
+      if (!result) return null;
+      return (
+        <div key={toolCallId} className="mt-2">
+          <ContentFramePreview data={result} />
         </div>
       );
 

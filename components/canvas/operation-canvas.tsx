@@ -14,11 +14,13 @@ import {
   ChevronRight,
   Instagram,
   FileText,
+  Layout,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ContentFramePreview } from "../generative-ui/content-frame-preview";
 
 // コンテンツプレビューの型
-export type ContentType = "wordpress" | "instagram" | "twitter" | "page" | "image";
+export type ContentType = "wordpress" | "instagram" | "twitter" | "page" | "image" | "contentFrame";
 
 export interface ContentPreview {
   id: string;
@@ -30,6 +32,16 @@ export interface ContentPreview {
   domain?: string;
   pageId?: number;
   createdAt: Date;
+  // ContentFrame用の追加データ
+  frameData?: {
+    success: boolean;
+    frameType: "frame1" | "frame2" | "frame3" | "frame4" | "frame5";
+    frameTypeName: string;
+    aspectRatio: "reels" | "feed";
+    aspectRatioName: string;
+    data: Record<string, unknown>;
+    message: string;
+  };
 }
 
 interface OperationCanvasProps {
@@ -52,6 +64,7 @@ const contentTypeIcons: Record<ContentType, React.ElementType> = {
   twitter: Globe,
   page: FileText,
   image: Eye,
+  contentFrame: Layout,
 };
 
 const contentTypeLabels: Record<ContentType, string> = {
@@ -60,6 +73,7 @@ const contentTypeLabels: Record<ContentType, string> = {
   twitter: "Twitter",
   page: "ページ",
   image: "画像",
+  contentFrame: "コンテンツフレーム",
 };
 
 export function OperationCanvas({
@@ -290,7 +304,11 @@ export function OperationCanvas({
 
               {/* Preview Content */}
               <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex items-center justify-center">
-                {selectedPreview.url ? (
+                {selectedPreview.type === "contentFrame" && selectedPreview.frameData ? (
+                  <div className="p-4 overflow-auto w-full h-full flex items-center justify-center">
+                    <ContentFramePreview data={selectedPreview.frameData} />
+                  </div>
+                ) : selectedPreview.url ? (
                   <div
                     className="h-full transition-all duration-300 bg-white"
                     style={{ width: getIframeWidth(), maxWidth: "100%" }}

@@ -14,6 +14,7 @@ import { ConstructionProgress } from "./generative-ui/construction-progress";
 import { SSLSetupForm } from "./generative-ui/ssl-setup-form";
 import { AffiliateLinksCard } from "./generative-ui/affiliate-links-card";
 import { WordPressOperationProgress } from "./generative-ui/wordpress-operation-progress";
+import { ContentFramePreview } from "./generative-ui/content-frame-preview";
 import ImageGenerationModal from "./image-generation-modal";
 
 // LocalStorageのキー
@@ -32,9 +33,23 @@ function splitMessageIntoBubbles(message: Message): MessageBubble[] {
   let currentBubble: MessageBubble = { id: `${message.id}-0`, texts: [], tools: [] };
   let bubbleIndex = 0;
 
+  // デバッグ: メッセージ全体の構造を出力
+  console.log("🔍 Processing message:", {
+    id: message.id,
+    role: message.role,
+    hasContent: !!message.content,
+    hasParts: !!(message as any).parts,
+    partsLength: (message as any).parts?.length,
+    hasToolInvocations: !!(message as any).toolInvocations,
+    toolInvocationsLength: (message as any).toolInvocations?.length,
+  });
+
   // partsがある場合はpartsベースで分割
   const parts = (message as any).parts;
   if (parts && Array.isArray(parts)) {
+    // デバッグ: parts構造を出力
+    console.log("📦 Message parts:", JSON.stringify(parts.map((p: any) => ({ type: p.type, state: p.toolInvocation?.state, toolName: p.toolInvocation?.toolName || p.toolName })), null, 2));
+
     for (const part of parts) {
       if (part.type === "step-start") {
         // 現在のバブルに内容があれば保存して新規作成
@@ -51,20 +66,34 @@ function splitMessageIntoBubbles(message: Message): MessageBubble[] {
           currentBubble.texts.push(text);
         }
       } else if (part.type === "tool-invocation" && part.toolInvocation) {
+        // AI SDK v4対応: tool-invocationパートを処理
+        console.log("🔧 Tool invocation found:", part.toolInvocation.toolName, "state:", part.toolInvocation.state);
         if (part.toolInvocation.state === "result") {
           currentBubble.tools.push(part.toolInvocation);
         }
+      } else if (part.type === "tool-result" && part.result !== undefined) {
+        // AI SDK v4: tool-resultパートを処理（新しい形式）
+        console.log("🔧 Tool result found:", part.toolName);
+        currentBubble.tools.push({
+          toolName: part.toolName,
+          toolCallId: part.toolCallId,
+          result: part.result,
+          state: "result",
+        });
       }
     }
   } else {
     // partsがない場合は従来のロジック
+    console.log("📭 No parts found, using fallback logic");
     const textContent = message.content?.trim() || "";
     const meaninglessPatterns = /^[。、.・\s,，．…！？!?]+$/;
     if (textContent.length > 0 && !meaninglessPatterns.test(textContent)) {
       currentBubble.texts.push(textContent);
     }
-    if (message.toolInvocations) {
-      for (const ti of message.toolInvocations) {
+    if ((message as any).toolInvocations) {
+      console.log("🔧 Fallback: Found toolInvocations:", (message as any).toolInvocations.length);
+      for (const ti of (message as any).toolInvocations) {
+        console.log("🔧 Fallback tool:", ti.toolName, "state:", ti.state);
         if ((ti as any).state === "result") {
           currentBubble.tools.push(ti);
         }
@@ -84,6 +113,14 @@ function splitMessageIntoBubbles(message: Message): MessageBubble[] {
 function renderToolResult(toolInvocation: any) {
   const { toolName, toolCallId } = toolInvocation;
 
+  // デバッグ: ツール呼び出しの詳細をログ出力
+  console.log("🎨 renderToolResult called:", {
+    toolName,
+    toolCallId,
+    hasResult: toolInvocation.result !== undefined,
+    result: toolInvocation.result,
+  });
+
   // SNS投稿企画
   if (toolName === "showPlanningBoard") {
     return (
@@ -98,6 +135,20 @@ function renderToolResult(toolInvocation: any) {
     return (
       <div key={toolCallId} className="mt-2">
         <ImagePreview data={toolInvocation.result} />
+      </div>
+    );
+  }
+
+  // コンテンツフレーム生成
+  if (toolName === "generateContentFrame") {
+    console.log("📋 ContentFramePreview rendering with data:", toolInvocation.result);
+    if (!toolInvocation.result) {
+      console.warn("⚠️ generateContentFrame: result is undefined");
+      return null;
+    }
+    return (
+      <div key={toolCallId} className="mt-2">
+        <ContentFramePreview data={toolInvocation.result} />
       </div>
     );
   }

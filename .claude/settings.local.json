@@ -46,7 +46,9 @@
       "Bash(gh repo create:*)",
       "Bash(winget install:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(node scripts/create-storage-bucket.mjs:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

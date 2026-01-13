@@ -483,6 +483,31 @@ export function DesktopChatPanel({
           }
         }
 
+        // コンテンツフレーム生成
+        if (ti.toolName === "generateContentFrame" && ti.result?.success) {
+          const previewId = `contentFrame-${ti.toolCallId}`;
+          if (!processedPreviewsRef.current.has(previewId)) {
+            processedPreviewsRef.current.add(previewId);
+            onContextChange({
+              content_preview: {
+                id: previewId,
+                type: "contentFrame",
+                title: ti.result.frameTypeName || "コンテンツフレーム",
+                createdAt: new Date(),
+                frameData: {
+                  success: ti.result.success,
+                  frameType: ti.result.frameType,
+                  frameTypeName: ti.result.frameTypeName,
+                  aspectRatio: ti.result.aspectRatio,
+                  aspectRatioName: ti.result.aspectRatioName,
+                  data: ti.result.data,
+                  message: ti.result.message,
+                },
+              },
+            });
+          }
+        }
+
         // WordPress ページ更新
         if (ti.toolName === "updateWordPressPage" && ti.result?.success && ti.result?.pageUrl) {
           const previewId = `wp-update-${ti.result.pageId || ti.toolCallId}`;

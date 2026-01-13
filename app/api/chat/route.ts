@@ -13,6 +13,8 @@ import {
   generateSystemPromptWithRAG,
   shouldUseRAG,
   inferCategory,
+  createUserLearningEngine,
+  inferPersonalizationMode,
 } from "@/lib/intelligence";
 
 // Imagen 3 用クライアント（遅延初期化）
@@ -773,13 +775,90 @@ ${connectedSites
     }
   }
 
+  // ★★★ User Learning Integration: パーソナライゼーション ★★★
+  let userContextApplied = false;
+  if (user) {
+    try {
+      const learningEngine = createUserLearningEngine();
+      const personalizationMode = inferPersonalizationMode(lastUserMessage);
+
+      const userContext = await learningEngine.getUserContext(
+        user.id,
+        lastUserMessage,
+        personalizationMode
+      );
+
+      // ユーザーコンテキストがある場合、システムプロンプトに追加
+      if (userContext.formattedContext && (
+        userContext.businessContext.length > 0 ||
+        userContext.recurringTopics.length > 0 ||
+        userContext.relevantHistory.length > 0
+      )) {
+        finalSystemPrompt = `${finalSystemPrompt}
+
+${"=".repeat(50)}
+${userContext.formattedContext}
+${"=".repeat(50)}`;
+        userContextApplied = true;
+        console.log(`[UserLearning] パーソナライゼーション適用 (mode: ${personalizationMode}, learnings: ${
+          userContext.businessContext.length + userContext.recurringTopics.length + userContext.relevantHistory.length
+        })`);
+      }
+    } catch (error) {
+      console.error("[UserLearning] エラー発生:", error);
+      // エラーが発生しても処理は続行
+    }
+  }
+
   console.log("📝 System Prompt:", finalSystemPrompt.substring(0, 200));
-  console.log("💬 Messages:", JSON.stringify(messages, null, 2));
   console.log("🧠 RAG使用:", ragUsed);
+  console.log("👤 ユーザーコンテキスト適用:", userContextApplied);
+
+  // クレジットエラー関連のツール結果をフィルタリング
+  // これにより、ポイントをチャージした後にAIが再試行できるようになる
+  const filteredMessages = messages.map((message: any) => {
+    // assistantメッセージでtoolInvocationsがある場合のみ処理
+    if (message.role === "assistant" && message.toolInvocations) {
+      const filteredToolInvocations = message.toolInvocations.filter((invocation: any) => {
+        // ツール結果がクレジットエラーの場合はフィルタリング
+        if (invocation.state === "result" && invocation.result) {
+          const result = invocation.result;
+          // クレジット不足エラーを検出
+          if (
+            result.success === false &&
+            (result.error?.includes("Ma-Point") ||
+             result.error?.includes("ポイント") ||
+             result.error?.includes("クレジット") ||
+             result.error?.includes("credit") ||
+             result.error?.includes("残高"))
+          ) {
+            console.log(`🔄 Filtering credit error tool result: ${invocation.toolName}`);
+            return false; // このツール結果をフィルタリング
+          }
+        }
+        return true;
+      });
+
+      // フィルタリング後のtoolInvocationsが空でない場合のみ返す
+      if (filteredToolInvocations.length > 0) {
+        return { ...message, toolInvocations: filteredToolInvocations };
+      } else if (message.content && message.content.trim()) {
+        // テキストコンテンツがあればそれだけ返す
+        const { toolInvocations, ...rest } = message;
+        return rest;
+      } else {
+        // 何もない場合はnullを返して後でフィルタリング
+        return null;
+      }
+    }
+    return message;
+  }).filter((message: any) => message !== null);
+
+  console.log("💬 Filtered Messages:", JSON.stringify(filteredMessages, null, 2));
 
   const result = streamText({
     model: google("gemini-2.0-flash"),
-    messages,
+    messages: filteredMessages,
     system: finalSystemPrompt,
     maxTokens: 2000,
     temperature: 0.7,
@@ -3175,6 +3254,119 @@ ${connectedSites
             totalCount: operations.length,
             completedCount: operations.filter(op => op.success).length,
             errorCount: operations.filter(op => !op.success).length,
+          };
+        },
+      }),
+
+      // ========== コンテンツフレーム生成ツール ==========
+
+      generateContentFrame: tool({
+        description:
+          "SNS投稿用のコンテンツフレームを生成します。「Instagram用の投稿を作って」「Reels用のコンテンツを作成して」「チャット形式の投稿を作りたい」などと言われた時に使用します。5種類のフレームタイプから最適なものを選んで生成します。",
+        parameters: z.object({
+          frameType: z
+            .enum(["frame1", "frame2", "frame3", "frame4", "frame5"])
+            .describe(
+              "フレームタイプ。frame1=チャット会話形式、frame2=雑誌風レイアウト、frame3=手書きメモ風、frame4=映画字幕風、frame5=クイズ形式"
+            ),
+          aspectRatio: z
+            .enum(["reels", "feed"])
+            .describe("アスペクト比。reels=縦長(9:16)、feed=正方形寄り(4:5)"),
+          title: z.string().optional().describe("メインタイトル"),
+          subtitle: z.string().optional().describe("サブタイトル"),
+          content: z.string().describe("メインコンテンツ（テキスト内容）"),
+          additionalData: z
+            .record(z.unknown())
+            .optional()
+            .describe("フレームタイプに応じた追加データ"),
+        }),
+        execute: async ({
+          frameType,
+          aspectRatio,
+          title,
+          subtitle,
+          content,
+          additionalData,
+        }) => {
+          // フレームタイプに応じたデータを生成
+          let frameData: Record<string, unknown> = {};
+
+          switch (frameType) {
+            case "frame1": // Chat形式 (Frame1Props準拠)
+              // コンテンツを会話形式に分割
+              const lines = content.split("\n").filter((l) => l.trim());
+              const messages = lines.map((line, i) => ({
+                id: `msg-${i}`,
+                sender: i % 2 === 0 ? ("customer" as const) : ("shop" as const),
+                content: line.trim(),
+              }));
+              frameData = {
+                messages:
+                  messages.length > 0
+                    ? messages
+                    : [
+                        { id: "1", sender: "customer", content: "質問です" },
+                        { id: "2", sender: "shop", content: content },
+                      ],
+                headerTitle: title || "AIチャット",
+              };
+              break;
+
+            case "frame2": // Magazine形式 (Frame2Props準拠)
+              frameData = {
+                title: title || "見出し",
+                subtitle: subtitle || content,
+                backgroundImage:
+                  (additionalData?.backgroundImage as string) || undefined,
+              };
+              break;
+
+            case "frame3": // Memo形式 (Frame3Props準拠)
+              frameData = {
+                content: content,
+              };
+              break;
+
+            case "frame4": // Cinema形式 (Frame4Props準拠)
+              frameData = {
+                subtitle: content,
+                backgroundImage:
+                  (additionalData?.backgroundImage as string) || undefined,
+              };
+              break;
+
+            case "frame5": // Quiz形式 (Frame5Props準拠)
+              const options = (additionalData?.options as string[]) || [
+                "選択肢A",
+                "選択肢B",
+                "選択肢C",
+                "選択肢D",
+              ];
+              frameData = {
+                question: content,
+                options: options,
+                correctIndex: (additionalData?.correctIndex as number) || 0,
+              };
+              break;
+          }
+
+          // フレームタイプの日本語名
+          const frameTypeNames: Record<string, string> = {
+            frame1: "チャット会話形式",
+            frame2: "雑誌風レイアウト",
+            frame3: "手書きメモ風",
+            frame4: "映画字幕風",
+            frame5: "クイズ形式",
+          };
+
+          return {
+            success: true,
+            frameType,
+            frameTypeName: frameTypeNames[frameType],
+            aspectRatio,
+            aspectRatioName: aspectRatio === "reels" ? "リール (9:16)" : "フィード (4:5)",
+            data: frameData,
+            message: `${frameTypeNames[frameType]}のコンテンツフレームを生成しました！右側のCanvasでプレビューを確認できます。`,
           };
         },
       }),

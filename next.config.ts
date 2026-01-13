@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
     appIsrStatus: false,
     buildActivity: false,
   },
+  // Puppeteer + Remotion用の外部パッケージ設定
+  serverExternalPackages: [
+    "puppeteer-core",
+    "@sparticuz/chromium",
+    "@remotion/bundler",
+    "@remotion/renderer",
+    "@remotion/cli",
+    "@remotion/media-parser",
+    "esbuild",
+  ],
 };
 
 // 本番環境でSentryが設定されている場合のみラップ

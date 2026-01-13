@@ -6,9 +6,15 @@ export default {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/content-engine/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
+      // Design System v2.0: Typography
+      fontFamily: {
+        sans: ["var(--font-noto-sans-jp)", "Noto Sans JP", "sans-serif"],
+        serif: ["var(--font-noto-serif-jp)", "Noto Serif JP", "serif"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

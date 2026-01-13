@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import "./globals.css";
 import { Footer } from "@/components/footer";
 import { Toaster } from "sonner";
@@ -8,6 +8,23 @@ import { SkipToContent } from "@/components/accessibility/skip-to-content";
 import { A11yChecker } from "@/components/accessibility/a11y-checker";
 
 const inter = Inter({ subsets: ["latin"] });
+
+// Design System v2.0: Typography
+// Noto Sans JP (ゴシック体) - 400, 500, 700
+const notoSansJP = Noto_Sans_JP({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-noto-sans-jp",
+  display: "swap",
+});
+
+// Noto Serif JP (明朝体) - for Frame 2 Magazine style
+const notoSerifJP = Noto_Serif_JP({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-noto-serif-jp",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Marty - AI Marketing Partner",
@@ -21,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body className={`${inter.className} ${notoSansJP.variable} ${notoSerifJP.variable}`}>
         <SkipToContent />
         <WebVitals />
         <A11yChecker />

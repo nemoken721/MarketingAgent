@@ -15,6 +15,32 @@ export const CREDIT_COSTS = {
 } as const;
 
 /**
+ * ユーザーが管理者かどうかをチェック
+ */
+export async function isUserAdmin(userId: string): Promise<boolean> {
+  console.log(`🔍 Checking admin status for user: ${userId}`);
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("is_admin")
+    .eq("id", userId)
+    .single();
+
+  console.log(`🔍 Admin check result:`, { data, error: error?.message });
+
+  if (error) {
+    console.error("Failed to check admin status:", error);
+    return false;
+  }
+
+  const isAdmin = data?.is_admin === true;
+  console.log(`🔍 User ${userId} is admin: ${isAdmin}`);
+  return isAdmin;
+}
+
+/**
  * ユーザーの現在のクレジット残高を取得
  */
 export async function getCreditBalance(
@@ -38,11 +64,19 @@ export async function getCreditBalance(
 
 /**
  * ポイントが十分にあるかチェック
+ * 管理者の場合は常にtrue（無制限）を返す
  */
 export async function checkCreditSufficient(
   userId: string,
   requiredAmount: number
-): Promise<{ sufficient: boolean; balance: number }> {
+): Promise<{ sufficient: boolean; balance: number; isAdmin?: boolean }> {
+  // 管理者チェック - 管理者は無制限
+  const admin = await isUserAdmin(userId);
+  if (admin) {
+    console.log(`✅ Admin user detected (${userId}): Credit check bypassed`);
+    return { sufficient: true, balance: 999999, isAdmin: true };
+  }
+
   const balance = await getCreditBalance(userId);
 
   if (balance === null) {
@@ -58,6 +92,7 @@ export async function checkCreditSufficient(
 /**
  * クレジットを消費する（Phase 5: データベース関数使用）
  * データベース側でトランザクション処理と排他制御を実行
+ * 管理者の場合はクレジット消費をスキップ
  * @param userId ユーザーID
  * @param amount 消費するポイント数
  * @param description 消費理由の説明
@@ -71,6 +106,13 @@ export async function deductCredit(
   referenceId?: string
 ): Promise<number | null> {
   try {
+    // 管理者チェック - 管理者はクレジット消費をスキップ
+    const admin = await isUserAdmin(userId);
+    if (admin) {
+      console.log(`✅ Admin user (${userId}): Credit deduction skipped for "${description}"`);
+      return 999999; // 仮想的な残高を返す
+    }
+
     const supabase = await createClient();
 
     // データベース関数を呼び出し（排他制御付き）

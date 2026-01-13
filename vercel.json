@@ -12,5 +12,15 @@
       "path": "/api/cron/crawl-knowledge",
       "schedule": "0 15 1 * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/export/image/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "app/api/export/video/route.ts": {
+      "memory": 3008,
+      "maxDuration": 300
+    }
+  }
 }

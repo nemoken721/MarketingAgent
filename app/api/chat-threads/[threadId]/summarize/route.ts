@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  extractLearningsFromConversation,
+  createUserLearningEngine,
+} from "@/lib/intelligence";
 
 /**
  * スレッド自動要約 API
@@ -131,10 +135,36 @@ ${conversationText}`;
       messageCount: messages.length,
     });
 
+    // ★★★ User Learning Extraction: 会話から学習ポイントを抽出 ★★★
+    let learningsSaved = 0;
+    try {
+      const extractionResult = await extractLearningsFromConversation(
+        messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        {
+          userId: user.id,
+          threadId,
+          minMessages: 4,
+        }
+      );
+
+      if (extractionResult.shouldExtract && extractionResult.learnings.length > 0) {
+        const learningEngine = createUserLearningEngine();
+        learningsSaved = await learningEngine.saveLearnings(extractionResult.learnings);
+        console.log(`[Summarize API] ${learningsSaved} 件の学習を保存`);
+      }
+    } catch (learningError) {
+      console.error("[Summarize API] Learning extraction error:", learningError);
+      // 学習抽出のエラーは無視して処理を続行
+    }
+
     return NextResponse.json({
       success: true,
       summary,
       messageCount: messages.length,
+      learningsSaved,
     });
   } catch (error: any) {
     console.error("[Summarize API Error]", error);

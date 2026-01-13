@@ -33,3 +33,17 @@ export {
 // Core Knowledge
 export { ALL_CORE_KNOWLEDGE } from "./core-knowledge/fanbase-strategy";
 export { ingestCoreKnowledge, addCustomCoreKnowledge } from "./core-knowledge/ingest-core";
+
+// User Learning (パーソナライゼーション)
+export {
+  UserLearningEngine,
+  createUserLearningEngine,
+  extractLearningsFromConversation,
+  inferPersonalizationMode,
+} from "./user-learning";
+export type {
+  UserLearning,
+  LearningType,
+  UserContext,
+  PersonalizationMode,
+} from "./user-learning";
