@@ -49,7 +49,19 @@ export async function GET(request: NextRequest) {
     }
 
     // 接続情報の有無を判定して返す
-    const sitesWithConnectionStatus = (websites || []).map((site) => {
+    interface WebsiteRow {
+      id: string;
+      domain: string;
+      status: string;
+      server_host: string | null;
+      server_user: string | null;
+      server_port: number | null;
+      wp_detection_result: unknown;
+      metadata: unknown;
+      updated_at: string;
+    }
+
+    const sitesWithConnectionStatus = (websites || []).map((site: WebsiteRow) => {
       const hasCredentials = !!(site.server_host && site.server_user);
       const wpDetection = site.wp_detection_result as any;
       const serverProvider = (site.metadata as any)?.server_provider || "other";

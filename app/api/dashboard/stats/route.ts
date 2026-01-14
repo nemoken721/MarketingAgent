@@ -35,7 +35,7 @@ export async function GET() {
     }
 
     // クレジット履歴を日別に集計
-    creditLedger?.forEach((entry) => {
+    creditLedger?.forEach((entry: { created_at: string; amount: number }) => {
       const date = format(new Date(entry.created_at), "M/d");
       const current = creditUsageByDate.get(date) || { used: 0, purchased: 0 };
 
@@ -64,7 +64,12 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(10);
 
-    const activities = recentActivities?.map((activity) => ({
+    const activities = recentActivities?.map((activity: {
+      id: string;
+      amount: number;
+      description: string | null;
+      created_at: string;
+    }) => ({
       id: activity.id,
       type: activity.amount > 0 ? "credit_purchase" : "credit_usage",
       description: activity.description || "クレジット操作",

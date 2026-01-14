@@ -123,7 +123,7 @@ export async function ensureStorageBucket(): Promise<void> {
     return;
   }
 
-  const bucketExists = buckets?.some((b) => b.name === STORAGE_BUCKET);
+  const bucketExists = buckets?.some((b: { name: string }) => b.name === STORAGE_BUCKET);
 
   if (!bucketExists) {
     const { error: createError } = await supabase.storage.createBucket(

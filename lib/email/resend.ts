@@ -1,12 +1,23 @@
 import { Resend } from "resend";
-import { env } from "@/lib/env";
 
 /**
  * Resend クライアント
  * トランザクションメール送信サービス
  */
 
-const resend = new Resend(env.RESEND_API_KEY);
+// 遅延初期化（ビルド時にエラーを防ぐ）
+let _resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!_resend) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error("RESEND_API_KEY is not configured");
+    }
+    _resend = new Resend(apiKey);
+  }
+  return _resend;
+}
 
 /**
  * メール送信の基本パラメータ
@@ -25,7 +36,8 @@ interface SendEmailParams {
  */
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
   try {
-    const fromEmail = env.RESEND_FROM_EMAIL || "noreply@marty.example.com";
+    const resend = getResendClient();
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@marty.example.com";
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
@@ -281,4 +293,5 @@ Marty - AIマーケティングアシスタント
   });
 }
 
-export { resend };
+// getResendClient を使うことで遅延初期化
+export { getResendClient as resend };

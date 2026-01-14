@@ -688,7 +688,7 @@ ${businessInfo.tone ? `- トーン&マナー: ${businessInfo.tone}` : ""}
 以下はユーザーの最近の投稿です。これらを参考に、一貫性のある企画を提案してください:
 ${recentPosts
   .map(
-    (post, i) =>
+    (post: { platform: string; content: string }, i: number) =>
       `${i + 1}. [${post.platform}] ${post.content.substring(0, 50)}...`
   )
   .join("\n")}`;
@@ -702,9 +702,20 @@ ${recentPosts
       .order("updated_at", { ascending: false })
       .limit(5);
 
+    // 型定義
+    interface WebsiteRecord {
+      id: string;
+      domain: string;
+      status: string;
+      server_host: string | null;
+      server_user: string | null;
+      wp_detection_result: unknown;
+      metadata: unknown;
+    }
+
     if (existingWebsites && existingWebsites.length > 0) {
       const connectedSites = existingWebsites.filter(
-        (w) => w.server_host && w.server_user
+        (w: WebsiteRecord) => w.server_host && w.server_user
       );
 
       if (connectedSites.length > 0) {
@@ -714,7 +725,7 @@ ${recentPosts
 **新しくcreateWebsiteRecordを呼ばないでください！既存のwebsiteIdを使用してください！**
 
 ${connectedSites
-  .map((w, i) => {
+  .map((w: WebsiteRecord, i: number) => {
     const wpDetection = w.wp_detection_result as any;
     const provider = (w.metadata as any)?.server_provider || "other";
     return `${i + 1}. **${w.domain}** (ID: ${w.id})
@@ -1679,7 +1690,17 @@ ${"=".repeat(50)}`;
             return { success: false, error: "サイト一覧の取得に失敗しました" };
           }
 
-          const sites = (websites || []).map((site) => {
+          interface SiteRecord {
+            id: string;
+            domain: string;
+            status: string;
+            server_host: string | null;
+            server_user: string | null;
+            wp_detection_result: unknown;
+            metadata: unknown;
+          }
+
+          const sites = (websites || []).map((site: SiteRecord) => {
             const hasCredentials = !!(site.server_host && site.server_user);
             const wpDetection = site.wp_detection_result as any;
             const serverProvider = (site.metadata as any)?.server_provider || "other";
@@ -1695,7 +1716,7 @@ ${"=".repeat(50)}`;
             };
           });
 
-          const connectedSites = sites.filter((s) => s.hasCredentials);
+          const connectedSites = sites.filter((s: { hasCredentials: boolean }) => s.hasCredentials);
 
           return {
             success: true,

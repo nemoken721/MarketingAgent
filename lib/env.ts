@@ -43,6 +43,17 @@ type ServerEnv = z.infer<typeof serverSchema>;
 type ClientEnv = z.infer<typeof clientSchema>;
 
 /**
+ * ビルド時かどうかを判定
+ * Next.jsのビルド時は環境変数が設定されていないため、バリデーションをスキップ
+ */
+function isBuildTime(): boolean {
+  // Vercelのビルド時は VERCEL_ENV が設定される前に実行される
+  // また、next build コマンド実行時は NODE_ENV が production になる
+  return process.env.NEXT_PHASE === "phase-production-build" ||
+    (process.env.NODE_ENV === "production" && !process.env.VERCEL_ENV);
+}
+
+/**
  * サーバーサイドの環境変数を取得
  * ビルド時/ランタイム時に自動的にバリデーション
  */
@@ -50,6 +61,18 @@ function getServerEnv(): ServerEnv {
   // サーバーサイドでのみ実行されることを確認
   if (typeof window !== "undefined") {
     throw new Error("getServerEnv() can only be called on the server side");
+  }
+
+  // ビルド時はダミー値を返す（バリデーションをスキップ）
+  if (isBuildTime()) {
+    return {
+      GOOGLE_GENERATIVE_AI_API_KEY: "build-time-placeholder",
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "build-time-placeholder",
+      STRIPE_SECRET_KEY: "sk_test_placeholder",
+      STRIPE_WEBHOOK_SECRET: "whsec_placeholder",
+      NODE_ENV: "production",
+    } as ServerEnv;
   }
 
   const parsed = serverSchema.safeParse(process.env);
@@ -66,6 +89,15 @@ function getServerEnv(): ServerEnv {
  * クライアントサイドの環境変数を取得
  */
 function getClientEnv(): ClientEnv {
+  // ビルド時はダミー値を返す
+  if (isBuildTime()) {
+    return {
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "build-time-placeholder",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_placeholder",
+    } as ClientEnv;
+  }
+
   const parsed = clientSchema.safeParse({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -89,10 +121,35 @@ export const isProduction = process.env.NODE_ENV === "production";
 export const isTest = process.env.NODE_ENV === "test";
 
 /**
- * エクスポート
+ * エクスポート（遅延評価 - ビルド時のエラーを防ぐ）
  * 使用例:
  * - サーバー: import { env } from "@/lib/env"
  * - クライアント: import { clientEnv } from "@/lib/env"
  */
-export const env = typeof window === "undefined" ? getServerEnv() : ({} as ServerEnv);
-export const clientEnv = getClientEnv();
+
+// 遅延評価用のキャッシュ
+let _serverEnv: ServerEnv | null = null;
+let _clientEnv: ClientEnv | null = null;
+
+// サーバー環境変数を遅延取得（ランタイム時のみ評価）
+export const env: ServerEnv = new Proxy({} as ServerEnv, {
+  get(_target, prop: keyof ServerEnv) {
+    if (typeof window !== "undefined") {
+      throw new Error("env can only be accessed on the server side");
+    }
+    if (!_serverEnv) {
+      _serverEnv = getServerEnv();
+    }
+    return _serverEnv[prop];
+  },
+});
+
+// クライアント環境変数を遅延取得
+export const clientEnv: ClientEnv = new Proxy({} as ClientEnv, {
+  get(_target, prop: keyof ClientEnv) {
+    if (!_clientEnv) {
+      _clientEnv = getClientEnv();
+    }
+    return _clientEnv[prop];
+  },
+});

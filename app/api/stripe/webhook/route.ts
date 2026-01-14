@@ -5,9 +5,16 @@ import { addCredit } from "@/lib/credits";
 import { sendCreditPurchaseEmail } from "@/lib/email/resend";
 import * as Sentry from "@sentry/nextjs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-});
+// 遅延初期化（ビルド時にエラーを防ぐ）
+function getStripeClient() {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+  return new Stripe(secretKey, {
+    apiVersion: "2025-02-24.acacia",
+  });
+}
 
 /**
  * Webhook ログを記録
@@ -57,6 +64,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
+    const stripe = getStripeClient();
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);

@@ -64,7 +64,7 @@ export async function POST(
 
     // メッセージ内容を結合
     const conversationSummary = messages
-      .map((m) => `${m.role === "user" ? "ユーザー" : "AI"}: ${m.content}`)
+      .map((m: { role: string; content: string }) => `${m.role === "user" ? "ユーザー" : "AI"}: ${m.content}`)
       .join("\n");
 
     // Gemini Flash でタイトル生成

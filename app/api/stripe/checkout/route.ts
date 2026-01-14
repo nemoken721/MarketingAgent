@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-});
+// 遅延初期化（ビルド時にエラーを防ぐ）
+function getStripeClient() {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error("STRIPE_SECRET_KEY is not configured");
+  }
+  return new Stripe(secretKey, {
+    apiVersion: "2025-02-24.acacia",
+  });
+}
 
 // ポイントプラン定義
 const CREDIT_PLANS = {
@@ -51,6 +58,7 @@ export async function POST(request: Request) {
       CREDIT_PLANS[plan as keyof typeof CREDIT_PLANS];
 
     // Stripe Checkoutセッションを作成
+    const stripe = getStripeClient();
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [

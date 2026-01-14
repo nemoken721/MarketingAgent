@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, RefreshCw, LogOut } from "lucide-react";
+import { Mail, RefreshCw, LogOut, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * メール確認待ちページ
@@ -12,6 +13,7 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleResendEmail = async () => {
     setResending(true);
@@ -36,12 +38,25 @@ export default function VerifyEmailPage() {
   };
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/auth/login");
-      router.refresh();
+      // クライアントサイドで直接Supabaseのサインアウトを実行
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Logout error:", error);
+        alert("ログアウトに失敗しました: " + error.message);
+        return;
+      }
+
+      // ログインページにリダイレクト
+      window.location.href = "/auth/login";
     } catch (error) {
       console.error("Logout failed:", error);
+      alert("ログアウトに失敗しました。");
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -106,10 +121,20 @@ export default function VerifyEmailPage() {
           {/* ログアウトボタン */}
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors"
+            disabled={loggingOut}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <LogOut className="w-4 h-4" />
-            ログアウト
+            {loggingOut ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                ログアウト中...
+              </>
+            ) : (
+              <>
+                <LogOut className="w-4 h-4" />
+                ログアウト
+              </>
+            )}
           </button>
         </div>
 

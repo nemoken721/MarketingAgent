@@ -91,7 +91,7 @@ export async function POST(
 
     // 会話内容を結合
     const conversationText = messages
-      .map((m) => `${m.role === "user" ? "ユーザー" : "AI"}: ${m.content}`)
+      .map((m: { role: string; content: string }) => `${m.role === "user" ? "ユーザー" : "AI"}: ${m.content}`)
       .join("\n\n");
 
     const prompt = `以下の会話を簡潔に要約してください。
@@ -139,7 +139,7 @@ ${conversationText}`;
     let learningsSaved = 0;
     try {
       const extractionResult = await extractLearningsFromConversation(
-        messages.map((m) => ({
+        messages.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         })),

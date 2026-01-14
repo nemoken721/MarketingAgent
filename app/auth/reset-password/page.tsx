@@ -1,5 +1,8 @@
 "use client";
 
+// ビルド時の静的生成をスキップ
+export const dynamic = "force-dynamic";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Loader2, CheckCircle } from "lucide-react";
@@ -13,7 +16,6 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [validating, setValidating] = useState(true);
-  const supabase = createClient();
 
   useEffect(() => {
     // URLからアクセストークンを確認
@@ -56,6 +58,7 @@ export default function ResetPasswordPage() {
     }
 
     try {
+      const supabase = createClient();
       const { error } = await supabase.auth.updateUser({
         password: password,
       });

@@ -158,3 +158,155 @@ body > div[style*="position: fixed"][style*="left: 0"] {
 nextjs-portal {
   display: none !important;
 }
+
+/* ============================================================================
+   LIFF (LINE Front-end Framework) 専用スタイル
+   LINE内での表示に最適化
+   ============================================================================ */
+
+/* LIFFコンテナ - 画面領域を最大化 */
+.liff-container {
+  /* LINEアプリのSafe Area対応 */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-top: env(safe-area-inset-top, 0);
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height */
+}
+
+/* LIFFページ共通スタイル */
+.liff-page {
+  /* スムーズなスクロール */
+  -webkit-overflow-scrolling: touch;
+  /* タッチハイライトを無効化（LINEライク） */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe Area Padding ユーティリティ */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* スクロールバー非表示（LIFF内） */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* LINEライクなチャット吹き出し */
+.liff-bubble {
+  border-radius: 18px;
+  padding: 12px 16px;
+  max-width: 85%;
+  word-break: break-word;
+}
+
+.liff-bubble-user {
+  background: linear-gradient(135deg, #00B900 0%, #00C300 100%);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.liff-bubble-assistant {
+  background: white;
+  color: #1a1a1a;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* LIFF用ボタンスタイル */
+.liff-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.liff-button-primary {
+  background: linear-gradient(135deg, #00B900 0%, #00C300 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 185, 0, 0.3);
+}
+
+.liff-button-primary:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(0, 185, 0, 0.2);
+}
+
+/* LIFF用カード */
+.liff-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* LIFF用モーダル/ボトムシート */
+.liff-bottom-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.liff-bottom-sheet-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.liff-bottom-sheet-handle {
+  width: 48px;
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  margin: 12px auto;
+}
+
+/* LIFF用ローディングスピナー */
+.liff-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #00B900;
+  border-radius: 50%;
+  animation: liff-spin 0.8s linear infinite;
+}
+
+@keyframes liff-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* iOS Safari対応: 100vh問題の修正 */
+@supports (-webkit-touch-callout: none) {
+  .liff-container {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* LINE Green カラー変数 */
+:root {
+  --line-green: #00B900;
+  --line-green-light: #00C300;
+  --line-green-dark: #009900;
+}

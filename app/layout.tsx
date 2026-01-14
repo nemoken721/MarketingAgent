@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Sans_JP, Noto_Serif_JP } from "next/font/google";
 import "./globals.css";
-import { Footer } from "@/components/footer";
 import { Toaster } from "sonner";
 import { WebVitals } from "@/components/web-vitals";
 import { SkipToContent } from "@/components/accessibility/skip-to-content";
 import { A11yChecker } from "@/components/accessibility/a11y-checker";
+import { Providers } from "@/components/providers";
+import { LiffLayoutWrapper } from "@/components/layout/liff-layout-wrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -39,16 +40,13 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${inter.className} ${notoSansJP.variable} ${notoSerifJP.variable}`}>
-        <SkipToContent />
-        <WebVitals />
-        <A11yChecker />
-        <div className="flex flex-col min-h-screen">
-          <main id="main-content" className="flex-1" tabIndex={-1}>
-            {children}
-          </main>
-          <Footer />
-        </div>
-        <Toaster position="top-right" richColors />
+        <Providers>
+          <SkipToContent />
+          <WebVitals />
+          <A11yChecker />
+          <LiffLayoutWrapper>{children}</LiffLayoutWrapper>
+          <Toaster position="top-right" richColors />
+        </Providers>
       </body>
     </html>
   );

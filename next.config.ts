@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
     "@remotion/cli",
     "@remotion/media-parser",
     "esbuild",
+    "@resvg/resvg-js",
+    "ssh2",
   ],
 };
 

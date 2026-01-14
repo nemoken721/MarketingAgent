@@ -29,9 +29,9 @@ export async function GET() {
 
   // プラットフォームごとの連携状態を整形
   const status = {
-    instagram: integrations?.some((i) => i.platform === "instagram") || false,
-    x: integrations?.some((i) => i.platform === "x") || false,
-    wordpress: integrations?.some((i) => i.platform === "wordpress") || false,
+    instagram: integrations?.some((i: { platform: string }) => i.platform === "instagram") || false,
+    x: integrations?.some((i: { platform: string }) => i.platform === "x") || false,
+    wordpress: integrations?.some((i: { platform: string }) => i.platform === "wordpress") || false,
   };
 
   return NextResponse.json({ integrations, status });

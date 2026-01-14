@@ -66,8 +66,8 @@ export async function GET(
     }
 
     const thread = toThread(threadRow as ChatThreadRow);
-    const messages: ChatMessage[] = (messageRows || []).map((row) =>
-      toMessage(row as ChatMessageRow)
+    const messages: ChatMessage[] = (messageRows || []).map((row: ChatMessageRow) =>
+      toMessage(row)
     );
 
     return NextResponse.json({ thread, messages });
