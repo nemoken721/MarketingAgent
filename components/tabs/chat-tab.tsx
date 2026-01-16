@@ -196,24 +196,22 @@ export function ChatTab({
 
       let activeThreadId = currentThreadId;
 
-      // スレッドがない場合は先に作成
+      // スレッドがない場合は作成を試みる（失敗しても続行 - 匿名モード）
       if (!activeThreadId && onCreateThread) {
         try {
           const newThread = await onCreateThread("chat" as CanvasMode);
-          if (!newThread) {
-            setChatError("スレッドの作成に失敗しました");
-            return;
+          if (newThread) {
+            activeThreadId = newThread.id;
+            pendingThreadIdRef.current = newThread.id;
           }
-          activeThreadId = newThread.id;
-          pendingThreadIdRef.current = newThread.id;
+          // スレッド作成に失敗してもチャットは続行
         } catch (threadError) {
-          console.error("Thread creation error:", threadError);
-          setChatError(`スレッド作成エラー: ${threadError instanceof Error ? threadError.message : String(threadError)}`);
-          return;
+          console.warn("Thread creation failed, continuing without thread:", threadError);
+          // 未ログイン時はスレッドなしでチャット続行
         }
       }
 
-      // ユーザーメッセージを保存
+      // ユーザーメッセージを保存（スレッドがある場合のみ）
       if (onSaveMessage && activeThreadId) {
         onSaveMessage("user", trimmedInput, undefined, undefined, true, activeThreadId)
           .then(() => {

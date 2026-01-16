@@ -11,7 +11,7 @@ import { ChatTab } from "../tabs/chat-tab";
 import { useChatThreads } from "@/hooks/use-chat-threads";
 
 export function MobileAppShell() {
-  const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [activeTab, setActiveTab] = useState<TabId>("chat");
 
   // スレッド管理
   const {
