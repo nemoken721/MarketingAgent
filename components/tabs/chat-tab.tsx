@@ -1,7 +1,43 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useChat } from "ai/react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useChat, Message } from "ai/react";
+
+// LocalStorageのキー（匿名ユーザー用）
+const ANONYMOUS_CHAT_HISTORY_KEY = "marty_anonymous_chat_history";
+
+// LocalStorageからチャット履歴を読み込む
+function loadAnonymousChatHistory(): Message[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = localStorage.getItem(ANONYMOUS_CHAT_HISTORY_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed;
+    }
+  } catch (error) {
+    console.error("チャット履歴の読み込みエラー:", error);
+  }
+  return [];
+}
+
+// LocalStorageにチャット履歴を保存する
+function saveAnonymousChatHistory(messages: Message[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ANONYMOUS_CHAT_HISTORY_KEY, JSON.stringify(messages));
+  } catch (error) {
+    console.error("チャット履歴の保存エラー:", error);
+  }
+}
+
+// プレビュー可能なツール名のリスト
+const PREVIEWABLE_TOOLS = [
+  "generateContentFrame",
+  "generateImage",
+  "showPlanningBoard",
+  "showConstructionRoadmap",
+];
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -17,7 +53,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatThread, ChatMessage as ChatMessageType, CanvasMode } from "@/types/chat";
-import type { Message } from "ai/react";
 
 // 吹き出し分割用の型定義
 interface MessageBubble {
@@ -169,6 +204,9 @@ export function ChatTab({
   const prevThreadIdRef = useRef<string | null | undefined>(undefined);
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const processedToolCallsRef = useRef<Set<string>>(new Set());
+  const isAnonymousMode = useRef(false);
+  const isInitialized = useRef(false);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: "/api/chat",
@@ -244,6 +282,77 @@ export function ChatTab({
       }, 100);
     }
     prevMessagesLengthRef.current = messages.length;
+  }, [messages]);
+
+  // 初回マウント時に匿名履歴を復元（スレッドがない場合）
+  useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
+    // スレッドIDがない場合は匿名モードとして履歴を復元
+    if (!currentThreadId) {
+      const savedMessages = loadAnonymousChatHistory();
+      if (savedMessages.length > 0) {
+        setMessages(savedMessages);
+        isAnonymousMode.current = true;
+        messageCountRef.current = savedMessages.length;
+      }
+    }
+  }, [currentThreadId, setMessages]);
+
+  // 匿名モード時にメッセージをLocalStorageに保存
+  useEffect(() => {
+    // スレッドがない場合（匿名モード）のみLocalStorageに保存
+    if (!currentThreadId && messages.length > 0 && isInitialized.current) {
+      isAnonymousMode.current = true;
+      saveAnonymousChatHistory(messages);
+    }
+  }, [messages, currentThreadId]);
+
+  // 新しいツール結果が来たら自動的にボトムシートを開く
+  useEffect(() => {
+    // 最後のアシスタントメッセージを取得
+    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
+    if (!lastAssistantMessage) return;
+
+    // ツール呼び出しをチェック
+    const toolInvocations = (lastAssistantMessage as any).toolInvocations;
+    if (!toolInvocations || !Array.isArray(toolInvocations)) return;
+
+    // 新しいプレビュー可能なツール結果を探す
+    for (const ti of toolInvocations) {
+      if (ti.state !== "result") continue;
+      if (!PREVIEWABLE_TOOLS.includes(ti.toolName)) continue;
+
+      const toolCallId = ti.toolCallId;
+      if (processedToolCallsRef.current.has(toolCallId)) continue;
+
+      // 新しいツール結果を発見 - ボトムシートを自動で開く
+      processedToolCallsRef.current.add(toolCallId);
+
+      // タイトルを決定
+      let title = "プレビュー";
+      if (ti.toolName === "generateContentFrame") {
+        title = ti.result?.layout === "magazine" ? "雑誌風レイアウト" : "コンテンツフレーム";
+      } else if (ti.toolName === "generateImage") {
+        title = "生成画像";
+      } else if (ti.toolName === "showPlanningBoard") {
+        title = "投稿企画";
+      } else if (ti.toolName === "showConstructionRoadmap") {
+        title = "構築ロードマップ";
+      }
+
+      // 少し遅延させてUIが落ち着いてから開く
+      setTimeout(() => {
+        setBottomSheetContent({
+          type: ti.toolName,
+          title,
+          data: ti.result,
+        });
+      }, 500);
+
+      break; // 1つだけ開く
+    }
   }, [messages]);
 
   const filterMessage = (content: string) => {
@@ -336,6 +445,13 @@ export function ChatTab({
     setMessages([]);
     messageCountRef.current = 0;
     pendingThreadIdRef.current = null;
+    processedToolCallsRef.current.clear();
+
+    // 匿名モードの履歴もクリア
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ANONYMOUS_CHAT_HISTORY_KEY);
+    }
+    isAnonymousMode.current = false;
 
     if (onClearThread) {
       onClearThread();
