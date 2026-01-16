@@ -48,7 +48,8 @@
       "Bash(git remote add:*)",
       "Bash(git push:*)",
       "Bash(node scripts/create-storage-bucket.mjs:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }

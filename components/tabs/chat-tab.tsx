@@ -85,6 +85,8 @@ export function ChatTab({
   const messageCountRef = useRef(0);
   const pendingThreadIdRef = useRef<string | null>(null);
   const prevThreadIdRef = useRef<string | null | undefined>(undefined);
+  const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: "/api/chat",
@@ -167,8 +169,19 @@ export function ChatTab({
     return text.length > 0 && !meaninglessPatterns.test(text);
   };
 
-  const handleCustomSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // テキストエリアの高さを自動調整
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  };
+
+  const handleCustomSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
 
     if (isLoading) return;
 
@@ -184,7 +197,15 @@ export function ChatTab({
       pendingThreadIdRef.current = newThread.id;
     }
 
-    handleSubmit(e);
+    // formRef経由でhandleSubmitを呼び出す
+    if (formRef.current) {
+      handleSubmit(e as any);
+    }
+
+    // テキストエリアの高さをリセット
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "48px";
+    }
 
     if (onSaveMessage && activeThreadId) {
       onSaveMessage("user", trimmedInput, undefined, undefined, true, activeThreadId)
@@ -518,7 +539,11 @@ export function ChatTab({
 
       {/* 入力エリア */}
       <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <form onSubmit={handleCustomSubmit} className="flex gap-3 items-end">
+        <form
+          ref={formRef}
+          onSubmit={handleCustomSubmit}
+          className="flex gap-3 items-end"
+        >
           <button
             type="button"
             onClick={() => setShowImageModal(true)}
@@ -528,16 +553,23 @@ export function ChatTab({
           </button>
           <div className="flex-1 relative">
             <textarea
+              ref={textareaRef}
               value={input}
-              onChange={handleInputChange}
+              onChange={(e) => {
+                handleInputChange(e);
+                adjustTextareaHeight();
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                // PCではEnterで送信、Shift+Enterで改行
+                // モバイルでは改行ボタンを使用するため、Enterで送信しない
+                const isMobile = window.innerWidth < 768;
+                if (e.key === "Enter" && !e.shiftKey && !isMobile) {
                   e.preventDefault();
-                  handleCustomSubmit(e as any);
+                  handleCustomSubmit();
                 }
               }}
               placeholder="メッセージを入力..."
-              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-800"
+              className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-800 text-base"
               rows={1}
               style={{ minHeight: "48px", maxHeight: "120px" }}
             />
@@ -546,7 +578,7 @@ export function ChatTab({
             whileTap={{ scale: 0.95 }}
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="p-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl transition-colors flex-shrink-0"
+            className="p-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
