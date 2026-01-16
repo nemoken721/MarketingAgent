@@ -80,6 +80,7 @@ export function ChatTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const messageCountRef = useRef(0);
@@ -120,6 +121,7 @@ export function ChatTab({
     },
     onError: (error) => {
       console.error("Chat error:", error);
+      setChatError(`チャットエラー: ${error.message || String(error)}`);
     },
   });
 
@@ -179,42 +181,59 @@ export function ChatTab({
   };
 
   const handleCustomSubmit = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
+    try {
+      if (e) {
+        e.preventDefault();
+      }
 
-    if (isLoading) return;
+      // エラーをクリア
+      setChatError(null);
 
-    const trimmedInput = input.trim();
-    if (!trimmedInput) return;
+      if (isLoading) return;
 
-    let activeThreadId = currentThreadId;
+      const trimmedInput = input.trim();
+      if (!trimmedInput) return;
 
-    // スレッドがない場合は先に作成
-    if (!activeThreadId && onCreateThread) {
-      const newThread = await onCreateThread("chat" as CanvasMode);
-      if (!newThread) return;
-      activeThreadId = newThread.id;
-      pendingThreadIdRef.current = newThread.id;
-    }
+      let activeThreadId = currentThreadId;
 
-    // ユーザーメッセージを保存
-    if (onSaveMessage && activeThreadId) {
-      onSaveMessage("user", trimmedInput, undefined, undefined, true, activeThreadId)
-        .then(() => {
-          messageCountRef.current += 1;
-        })
-        .catch((err) => {
-          console.error("Failed to save user message:", err);
-        });
-    }
+      // スレッドがない場合は先に作成
+      if (!activeThreadId && onCreateThread) {
+        try {
+          const newThread = await onCreateThread("chat" as CanvasMode);
+          if (!newThread) {
+            setChatError("スレッドの作成に失敗しました");
+            return;
+          }
+          activeThreadId = newThread.id;
+          pendingThreadIdRef.current = newThread.id;
+        } catch (threadError) {
+          console.error("Thread creation error:", threadError);
+          setChatError(`スレッド作成エラー: ${threadError instanceof Error ? threadError.message : String(threadError)}`);
+          return;
+        }
+      }
 
-    // handleSubmitを呼び出し（イベントなしで呼び出し - inputステートを使用）
-    handleSubmit();
+      // ユーザーメッセージを保存
+      if (onSaveMessage && activeThreadId) {
+        onSaveMessage("user", trimmedInput, undefined, undefined, true, activeThreadId)
+          .then(() => {
+            messageCountRef.current += 1;
+          })
+          .catch((err) => {
+            console.error("Failed to save user message:", err);
+          });
+      }
 
-    // テキストエリアの高さをリセット
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "48px";
+      // handleSubmitを呼び出し（イベントなしで呼び出し - inputステートを使用）
+      handleSubmit();
+
+      // テキストエリアの高さをリセット
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "48px";
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
+      setChatError(`送信エラー: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -541,6 +560,20 @@ export function ChatTab({
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* エラー表示 */}
+      {chatError && (
+        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-800">
+          <p className="text-sm text-red-600 dark:text-red-400">{chatError}</p>
+          <button
+            type="button"
+            onClick={() => setChatError(null)}
+            className="text-xs text-red-500 underline mt-1"
+          >
+            閉じる
+          </button>
+        </div>
+      )}
 
       {/* 入力エリア */}
       <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
