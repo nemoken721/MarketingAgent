@@ -178,10 +178,8 @@ export function ChatTab({
     }
   };
 
-  const handleCustomSubmit = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
+  const handleCustomSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
     if (isLoading) return;
 
@@ -190,6 +188,7 @@ export function ChatTab({
 
     let activeThreadId = currentThreadId;
 
+    // スレッドがない場合は先に作成
     if (!activeThreadId && onCreateThread) {
       const newThread = await onCreateThread("chat" as CanvasMode);
       if (!newThread) return;
@@ -197,16 +196,7 @@ export function ChatTab({
       pendingThreadIdRef.current = newThread.id;
     }
 
-    // formRef経由でhandleSubmitを呼び出す
-    if (formRef.current) {
-      handleSubmit(e as any);
-    }
-
-    // テキストエリアの高さをリセット
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "48px";
-    }
-
+    // ユーザーメッセージを保存
     if (onSaveMessage && activeThreadId) {
       onSaveMessage("user", trimmedInput, undefined, undefined, true, activeThreadId)
         .then(() => {
@@ -215,6 +205,21 @@ export function ChatTab({
         .catch((err) => {
           console.error("Failed to save user message:", err);
         });
+    }
+
+    // handleSubmitを呼び出し（inputの値を使用）
+    handleSubmit(e);
+
+    // テキストエリアの高さをリセット
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "48px";
+    }
+  };
+
+  // ボタンクリック用のハンドラー
+  const handleButtonClick = () => {
+    if (formRef.current) {
+      formRef.current.requestSubmit();
     }
   };
 
@@ -565,7 +570,7 @@ export function ChatTab({
                 const isMobile = window.innerWidth < 768;
                 if (e.key === "Enter" && !e.shiftKey && !isMobile) {
                   e.preventDefault();
-                  handleCustomSubmit();
+                  handleButtonClick();
                 }
               }}
               placeholder="メッセージを入力..."
