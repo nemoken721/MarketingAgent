@@ -579,18 +579,18 @@ export function ChatTab({
               style={{ minHeight: "48px", maxHeight: "120px" }}
             />
           </div>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            type="submit"
+          <button
+            type="button"
+            onClick={handleButtonClick}
             disabled={isLoading || !input.trim()}
-            className="p-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0"
+            className="p-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0 active:scale-95"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Send className="w-5 h-5" />
             )}
-          </motion.button>
+          </button>
         </form>
       </div>
 
