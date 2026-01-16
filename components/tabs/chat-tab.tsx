@@ -178,8 +178,10 @@ export function ChatTab({
     }
   };
 
-  const handleCustomSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCustomSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
 
     if (isLoading) return;
 
@@ -207,8 +209,8 @@ export function ChatTab({
         });
     }
 
-    // handleSubmitを呼び出し（inputの値を使用）
-    handleSubmit(e);
+    // handleSubmitを呼び出し（イベントなしで呼び出し - inputステートを使用）
+    handleSubmit();
 
     // テキストエリアの高さをリセット
     if (textareaRef.current) {
@@ -218,9 +220,7 @@ export function ChatTab({
 
   // ボタンクリック用のハンドラー
   const handleButtonClick = () => {
-    if (formRef.current) {
-      formRef.current.requestSubmit();
-    }
+    handleCustomSubmit();
   };
 
   const handleSearch = async () => {
