@@ -17,6 +17,77 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatThread, ChatMessage as ChatMessageType, CanvasMode } from "@/types/chat";
+import type { Message } from "ai/react";
+
+// 吹き出し分割用の型定義
+interface MessageBubble {
+  id: string;
+  texts: string[];
+  tools: any[];
+}
+
+// メッセージをstep-startで分割して複数の吹き出しに変換
+function splitMessageIntoBubbles(message: Message): MessageBubble[] {
+  const bubbles: MessageBubble[] = [];
+  let currentBubble: MessageBubble = { id: `${message.id}-0`, texts: [], tools: [] };
+  let bubbleIndex = 0;
+
+  // partsがある場合はpartsベースで分割
+  const parts = (message as any).parts;
+  if (parts && Array.isArray(parts)) {
+    for (const part of parts) {
+      if (part.type === "step-start") {
+        // 現在のバブルに内容があれば保存して新規作成
+        if (currentBubble.texts.length > 0 || currentBubble.tools.length > 0) {
+          bubbles.push(currentBubble);
+          bubbleIndex++;
+          currentBubble = { id: `${message.id}-${bubbleIndex}`, texts: [], tools: [] };
+        }
+      } else if (part.type === "text" && part.text) {
+        const text = part.text.trim();
+        // 意味のある内容のみ追加
+        const meaninglessPatterns = /^[。、.・\s,，．…！？!?]+$/;
+        if (text.length > 0 && !meaninglessPatterns.test(text)) {
+          currentBubble.texts.push(text);
+        }
+      } else if (part.type === "tool-invocation" && part.toolInvocation) {
+        // AI SDK v4対応: tool-invocationパートを処理
+        if (part.toolInvocation.state === "result") {
+          currentBubble.tools.push(part.toolInvocation);
+        }
+      } else if (part.type === "tool-result" && part.result !== undefined) {
+        // AI SDK v4: tool-resultパートを処理（新しい形式）
+        currentBubble.tools.push({
+          toolName: part.toolName,
+          toolCallId: part.toolCallId,
+          result: part.result,
+          state: "result",
+        });
+      }
+    }
+  } else {
+    // partsがない場合は従来のロジック
+    const textContent = message.content?.trim() || "";
+    const meaninglessPatterns = /^[。、.・\s,，．…！？!?]+$/;
+    if (textContent.length > 0 && !meaninglessPatterns.test(textContent)) {
+      currentBubble.texts.push(textContent);
+    }
+    if ((message as any).toolInvocations) {
+      for (const ti of (message as any).toolInvocations) {
+        if ((ti as any).state === "result") {
+          currentBubble.tools.push(ti);
+        }
+      }
+    }
+  }
+
+  // 最後のバブルを追加
+  if (currentBubble.texts.length > 0 || currentBubble.tools.length > 0) {
+    bubbles.push(currentBubble);
+  }
+
+  return bubbles;
+}
 
 // Generative UI Components
 import { PlanningBoard } from "../generative-ui/planning-board";
@@ -29,6 +100,7 @@ import { WordPressAdminForm } from "../generative-ui/wordpress-admin-form";
 import { ConstructionProgress } from "../generative-ui/construction-progress";
 import { SSLSetupForm } from "../generative-ui/ssl-setup-form";
 import { AffiliateLinksCard } from "../generative-ui/affiliate-links-card";
+import { WordPressOperationProgress } from "../generative-ui/wordpress-operation-progress";
 import ImageGenerationModal from "../image-generation-modal";
 
 interface ChatTabProps {
@@ -505,56 +577,66 @@ export function ChatTab({
             </div>
           </div>
         ) : (
-          <AnimatePresence initial={false}>
-            {messages.map((message) => {
+          messages.map((message, messageIndex) => {
+            // ユーザーメッセージは従来通り1つの吹き出し
+            if (message.role === "user") {
               const textContent = message.content?.trim() || "";
-              const hasTextContent = filterMessage(textContent);
-              const hasCompletedToolInvocations = message.toolInvocations?.some(
-                (ti: any) => ti.state === "result"
-              );
-
-              if (!hasTextContent && !hasCompletedToolInvocations) {
-                return null;
-              }
+              if (!textContent) return null;
 
               return (
                 <motion.div
                   key={message.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
+                  className="flex justify-end"
                 >
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-2xl px-4 py-3",
-                      message.role === "user"
-                        ? "bg-indigo-600 text-white rounded-br-md"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md"
-                    )}
-                  >
-                    {hasTextContent && (
-                      <div className="whitespace-pre-wrap break-words">
-                        {textContent.replace(/^[。、.・,，．…！？!?\s]+/, "")}
-                      </div>
-                    )}
-
-                    {/* Tool Invocations */}
-                    {message.toolInvocations?.map((toolInvocation: any) => {
-                      const { toolName, toolCallId, state } = toolInvocation;
-
-                      if (state === "result") {
-                        return renderToolResult(toolName, toolCallId, toolInvocation.result);
-                      }
-                      return null;
-                    })}
+                  <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-indigo-600 text-white rounded-br-md">
+                    <div className="whitespace-pre-wrap break-words">{textContent}</div>
                   </div>
                 </motion.div>
               );
-            })}
-          </AnimatePresence>
+            }
+
+            // アシスタントメッセージはstep-startで分割して複数の吹き出しに
+            const bubbles = splitMessageIntoBubbles(message);
+
+            // 表示するバブルがない場合はスキップ
+            if (bubbles.length === 0) return null;
+
+            return (
+              <AnimatePresence key={message.id} mode="popLayout">
+                {bubbles.map((bubble, bubbleIndex) => {
+                  const hasText = bubble.texts.length > 0;
+                  const hasTools = bubble.tools.length > 0;
+
+                  // 空のバブルはスキップ
+                  if (!hasText && !hasTools) return null;
+
+                  return (
+                    <motion.div
+                      key={bubble.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: bubbleIndex * 0.1 }}
+                      className="flex justify-start mb-2"
+                    >
+                      <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md">
+                        {/* テキストコンテンツ */}
+                        {hasText && (
+                          <div className="whitespace-pre-wrap break-words">
+                            {bubble.texts.join("\n\n").replace(/^[。、.・,，．…！？!?\s]+/, "")}
+                          </div>
+                        )}
+
+                        {/* ツール結果 */}
+                        {bubble.tools.map((tool) => renderToolResult(tool))}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -633,8 +715,10 @@ export function ChatTab({
   );
 }
 
-// Render tool results as Generative UI
-function renderToolResult(toolName: string, toolCallId: string, result: any) {
+// ツール結果をレンダリングするヘルパー関数 (PC版と同じシグネチャ)
+function renderToolResult(toolInvocation: any) {
+  const { toolName, toolCallId, result } = toolInvocation;
+
   switch (toolName) {
     case "showPlanningBoard":
       return (
@@ -744,6 +828,16 @@ function renderToolResult(toolName: string, toolCallId: string, result: any) {
       return (
         <div key={toolCallId} className="mt-3">
           <AffiliateLinksCard links={result.links || []} />
+        </div>
+      );
+
+    case "showWordPressOperationProgress":
+      return (
+        <div key={toolCallId} className="mt-3">
+          <WordPressOperationProgress
+            title={result.title}
+            operations={result.operations || []}
+          />
         </div>
       );
 
