@@ -102,6 +102,14 @@ import { SSLSetupForm } from "../generative-ui/ssl-setup-form";
 import { AffiliateLinksCard } from "../generative-ui/affiliate-links-card";
 import { WordPressOperationProgress } from "../generative-ui/wordpress-operation-progress";
 import ImageGenerationModal from "../image-generation-modal";
+import { BottomSheet } from "../ui/bottom-sheet";
+
+// ボトムシートで表示するコンテンツの型
+interface BottomSheetContent {
+  type: string;
+  title: string;
+  data: any;
+}
 
 interface ChatTabProps {
   // スレッド管理props
@@ -153,6 +161,7 @@ export function ChatTab({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [bottomSheetContent, setBottomSheetContent] = useState<BottomSheetContent | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const messageCountRef = useRef(0);
@@ -629,7 +638,7 @@ export function ChatTab({
                         )}
 
                         {/* ツール結果 */}
-                        {bubble.tools.map((tool) => renderToolResult(tool))}
+                        {bubble.tools.map((tool) => renderToolResult(tool, setBottomSheetContent))}
                       </div>
                     </motion.div>
                   );
@@ -711,45 +720,152 @@ export function ChatTab({
       {showImageModal && (
         <ImageGenerationModal onClose={() => setShowImageModal(false)} />
       )}
+
+      {/* ボトムシート（モバイル用プレビュー） */}
+      <BottomSheet
+        isOpen={bottomSheetContent !== null}
+        onClose={() => setBottomSheetContent(null)}
+        title={bottomSheetContent?.title || "プレビュー"}
+      >
+        <div className="p-4">
+          {bottomSheetContent?.type === "generateContentFrame" && (
+            <ContentFramePreview data={bottomSheetContent.data} />
+          )}
+          {bottomSheetContent?.type === "generateImage" && (
+            <ImagePreview data={bottomSheetContent.data} />
+          )}
+          {bottomSheetContent?.type === "showPlanningBoard" && (
+            <PlanningBoard data={bottomSheetContent.data} />
+          )}
+          {bottomSheetContent?.type === "showConstructionRoadmap" && (
+            <ConstructionRoadmap
+              currentStep={bottomSheetContent.data.currentStep}
+              completedSteps={bottomSheetContent.data.completedSteps || []}
+            />
+          )}
+          {bottomSheetContent?.type === "showDNSGuide" && (
+            <DNSGuideCard
+              serverProvider={bottomSheetContent.data.serverProvider}
+              domainRegistrar={bottomSheetContent.data.domainRegistrar}
+              nameServers={bottomSheetContent.data.nameServers}
+            />
+          )}
+          {bottomSheetContent?.type === "showServerAuthForm" && (
+            <ServerAuthForm
+              websiteId={bottomSheetContent.data.websiteId}
+              serverProvider={bottomSheetContent.data.serverProvider}
+            />
+          )}
+          {bottomSheetContent?.type === "showWordPressAdminForm" && (
+            <WordPressAdminForm
+              websiteId={bottomSheetContent.data.websiteId}
+              domain={bottomSheetContent.data.domain}
+            />
+          )}
+          {bottomSheetContent?.type === "showConstructionProgress" && (
+            <ConstructionProgress websiteId={bottomSheetContent.data.websiteId} />
+          )}
+          {bottomSheetContent?.type === "showSSLSetupForm" && (
+            <SSLSetupForm
+              websiteId={bottomSheetContent.data.websiteId}
+              domain={bottomSheetContent.data.domain}
+              defaultEmail={bottomSheetContent.data.email}
+            />
+          )}
+          {bottomSheetContent?.type === "showAffiliateLinks" && (
+            <AffiliateLinksCard links={bottomSheetContent.data.links || []} />
+          )}
+          {bottomSheetContent?.type === "showWordPressOperationProgress" && (
+            <WordPressOperationProgress
+              title={bottomSheetContent.data.title}
+              operations={bottomSheetContent.data.operations || []}
+            />
+          )}
+        </div>
+      </BottomSheet>
     </div>
   );
 }
 
-// ツール結果をレンダリングするヘルパー関数 (PC版と同じシグネチャ)
-function renderToolResult(toolInvocation: any) {
+// ツール結果をレンダリングするヘルパー関数 (モバイル用ボトムシート対応)
+function renderToolResult(
+  toolInvocation: any,
+  setBottomSheetContent: (content: BottomSheetContent | null) => void
+) {
   const { toolName, toolCallId, result } = toolInvocation;
+
+  // コンパクトプレビューカードを表示するヘルパー
+  const renderPreviewCard = (
+    title: string,
+    description: string,
+    type: string,
+    icon: string
+  ) => (
+    <div key={toolCallId} className="mt-3">
+      <button
+        onClick={() =>
+          setBottomSheetContent({
+            type,
+            title,
+            data: result,
+          })
+        }
+        className="w-full p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl text-left hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center text-xl">
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-indigo-700 dark:text-indigo-300 truncate">
+              {title}
+            </p>
+            <p className="text-xs text-indigo-500 dark:text-indigo-400 truncate">
+              {description}
+            </p>
+          </div>
+          <div className="text-indigo-500 dark:text-indigo-400">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
 
   switch (toolName) {
     case "showPlanningBoard":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <PlanningBoard data={result} />
-        </div>
+      return renderPreviewCard(
+        "投稿企画",
+        "タップして企画を確認",
+        "showPlanningBoard",
+        "📋"
       );
 
     case "generateImage":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <ImagePreview data={result} />
-        </div>
+      return renderPreviewCard(
+        "生成画像",
+        "タップして画像を確認",
+        "generateImage",
+        "🖼️"
       );
 
     case "generateContentFrame":
       if (!result) return null;
-      return (
-        <div key={toolCallId} className="mt-3">
-          <ContentFramePreview data={result} />
-        </div>
+      return renderPreviewCard(
+        result.layout === "magazine" ? "雑誌風レイアウト" : "コンテンツフレーム",
+        `${result.aspectRatio || "フィード"} - タップしてプレビュー`,
+        "generateContentFrame",
+        "📐"
       );
 
     case "showConstructionRoadmap":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <ConstructionRoadmap
-            currentStep={result.currentStep}
-            completedSteps={result.completedSteps || []}
-          />
-        </div>
+      return renderPreviewCard(
+        "構築ロードマップ",
+        "タップして進捗を確認",
+        "showConstructionRoadmap",
+        "🗺️"
       );
 
     case "checkDomain":
@@ -776,69 +892,59 @@ function renderToolResult(toolInvocation: any) {
       return null;
 
     case "showDNSGuide":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <DNSGuideCard
-            serverProvider={result.serverProvider}
-            domainRegistrar={result.domainRegistrar}
-            nameServers={result.nameServers}
-          />
-        </div>
+      return renderPreviewCard(
+        "DNS設定ガイド",
+        "タップして設定方法を確認",
+        "showDNSGuide",
+        "🌐"
       );
 
     case "showServerAuthForm":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <ServerAuthForm
-            websiteId={result.websiteId}
-            serverProvider={result.serverProvider}
-          />
-        </div>
+      return renderPreviewCard(
+        "サーバー認証情報",
+        "タップして入力フォームを開く",
+        "showServerAuthForm",
+        "🔐"
       );
 
     case "showWordPressAdminForm":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <WordPressAdminForm
-            websiteId={result.websiteId}
-            domain={result.domain}
-          />
-        </div>
+      return renderPreviewCard(
+        "WordPress管理者設定",
+        "タップして設定フォームを開く",
+        "showWordPressAdminForm",
+        "📝"
       );
 
     case "showConstructionProgress":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <ConstructionProgress websiteId={result.websiteId} />
-        </div>
+      return renderPreviewCard(
+        "構築進捗",
+        "タップして進捗を確認",
+        "showConstructionProgress",
+        "🔧"
       );
 
     case "showSSLSetupForm":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <SSLSetupForm
-            websiteId={result.websiteId}
-            domain={result.domain}
-            defaultEmail={result.email}
-          />
-        </div>
+      return renderPreviewCard(
+        "SSL証明書設定",
+        "タップして設定フォームを開く",
+        "showSSLSetupForm",
+        "🔒"
       );
 
     case "showAffiliateLinks":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <AffiliateLinksCard links={result.links || []} />
-        </div>
+      return renderPreviewCard(
+        "アフィリエイトリンク",
+        "タップしてリンク一覧を確認",
+        "showAffiliateLinks",
+        "🔗"
       );
 
     case "showWordPressOperationProgress":
-      return (
-        <div key={toolCallId} className="mt-3">
-          <WordPressOperationProgress
-            title={result.title}
-            operations={result.operations || []}
-          />
-        </div>
+      return renderPreviewCard(
+        result.title || "WordPress操作進捗",
+        "タップして進捗を確認",
+        "showWordPressOperationProgress",
+        "⚙️"
       );
 
     default:
